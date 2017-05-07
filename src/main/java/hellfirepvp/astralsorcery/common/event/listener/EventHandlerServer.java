@@ -15,6 +15,7 @@ import hellfirepvp.astralsorcery.common.block.BlockMachine;
 import hellfirepvp.astralsorcery.common.constellation.distribution.ConstellationSkyHandler;
 import hellfirepvp.astralsorcery.common.constellation.perk.ConstellationPerk;
 import hellfirepvp.astralsorcery.common.constellation.perk.ConstellationPerks;
+import hellfirepvp.astralsorcery.common.crafting.ShapedLightProximityRecipe;
 import hellfirepvp.astralsorcery.common.data.DataWorldSkyHandlers;
 import hellfirepvp.astralsorcery.common.data.config.Config;
 import hellfirepvp.astralsorcery.common.data.research.PlayerProgress;
@@ -26,12 +27,15 @@ import hellfirepvp.astralsorcery.common.event.BlockModifyEvent;
 import hellfirepvp.astralsorcery.common.event.EntityKnockbackEvent;
 import hellfirepvp.astralsorcery.common.item.base.ISpecialInteractItem;
 import hellfirepvp.astralsorcery.common.lib.BlocksAS;
+import hellfirepvp.astralsorcery.common.lib.EnchantmentsAS;
 import hellfirepvp.astralsorcery.common.lib.ItemsAS;
 import hellfirepvp.astralsorcery.common.network.PacketChannel;
+import hellfirepvp.astralsorcery.common.network.packet.server.PktCraftingTableFix;
 import hellfirepvp.astralsorcery.common.network.packet.server.PktParticleEvent;
 import hellfirepvp.astralsorcery.common.registry.RegistryAchievements;
 import hellfirepvp.astralsorcery.common.registry.RegistryPotions;
 import hellfirepvp.astralsorcery.common.starlight.WorldNetworkHandler;
+import hellfirepvp.astralsorcery.common.util.ItemUtils;
 import hellfirepvp.astralsorcery.common.util.data.TickTokenizedMap;
 import hellfirepvp.astralsorcery.common.util.data.TimeoutList;
 import hellfirepvp.astralsorcery.common.util.data.TimeoutListContainer;
@@ -40,17 +44,23 @@ import hellfirepvp.astralsorcery.common.util.data.WorldBlockPos;
 import hellfirepvp.astralsorcery.common.util.nbt.NBTHelper;
 import hellfirepvp.astralsorcery.common.world.WorldProviderBrightnessInj;
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockWorkbench;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.projectile.EntityArrow;
 import net.minecraft.init.Blocks;
+import net.minecraft.init.Enchantments;
 import net.minecraft.init.MobEffects;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.FurnaceRecipes;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.server.MinecraftServer;
@@ -66,6 +76,7 @@ import net.minecraftforge.event.entity.living.LivingSpawnEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.event.world.WorldEvent;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -75,8 +86,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import java.io.File;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * This class is part of the Astral Sorcery Mod
@@ -86,6 +96,8 @@ import java.util.Map;
  * Date: 07.05.2016 / 01:09
  */
 public class EventHandlerServer {
+
+    private static final Random rand = new Random();
 
     public static boolean isDataInitialized = false;
 
@@ -301,6 +313,17 @@ public class EventHandlerServer {
         }
     }
 
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onRightClickLast(PlayerInteractEvent.RightClickBlock event) {
+        if(!event.getWorld().isRemote) {
+            IBlockState interacted = event.getWorld().getBlockState(event.getPos());
+            if(interacted.getBlock() instanceof BlockWorkbench) {
+                PktCraftingTableFix fix = new PktCraftingTableFix(event.getPos());
+                PacketChannel.CHANNEL.sendTo(fix, (EntityPlayerMP) event.getEntityPlayer());
+            }
+        }
+    }
+
     @SubscribeEvent
     public void onCraft(PlayerEvent.ItemCraftedEvent event) {
         if (event.player.getServer() != null) {
@@ -373,6 +396,39 @@ public class EventHandlerServer {
 
         if (event.getState().getBlock().equals(Blocks.CRAFTING_TABLE)) {
             WorldNetworkHandler.getNetworkHandler(event.getWorld()).informTableRemoval(at);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOW)
+    public void onHarvest(BlockEvent.HarvestDropsEvent event) {
+        if(event.getHarvester() != null && !event.isSilkTouching()) {
+            ItemStack main = event.getHarvester().getHeldItemMainhand();
+            if(!main.isEmpty()) {
+                if(EnchantmentHelper.getEnchantmentLevel(EnchantmentsAS.enchantmentScorchingHeat, main) > 0) {
+                    int fortuneLvl = EnchantmentHelper.getEnchantmentLevel(Enchantments.FORTUNE, main);
+                    List<ItemStack> dropsCopy = new LinkedList<>();
+                    dropsCopy.addAll(event.getDrops());
+                    event.getDrops().clear();
+                    for (ItemStack stack : dropsCopy) {
+                        ItemStack out = FurnaceRecipes.instance().getSmeltingResult(stack);
+                        if(!out.isEmpty()) {
+                            ItemStack furnaced = ItemUtils.copyStackWithSize(out, 1);
+                            event.getDrops().add(furnaced);
+                            furnaced.onCrafting(event.getWorld(), event.getHarvester(), 1);
+                            FMLCommonHandler.instance().firePlayerSmeltedEvent(event.getHarvester(), furnaced);
+                            if(fortuneLvl > 0 && !(out.getItem() instanceof ItemBlock)) {
+                                for (int i = 0; i < fortuneLvl; i++) {
+                                    if(rand.nextFloat() < 0.5F) {
+                                        event.getDrops().add(ItemUtils.copyStackWithSize(out, 1));
+                                    }
+                                }
+                            }
+                        } else {
+                            event.getDrops().add(stack);
+                        }
+                    }
+                }
+            }
         }
     }
 

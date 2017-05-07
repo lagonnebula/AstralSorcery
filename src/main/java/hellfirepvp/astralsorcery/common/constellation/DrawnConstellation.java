@@ -6,21 +6,27 @@
  * For further details, see the License file there.
  ******************************************************************************/
 
-package hellfirepvp.astralsorcery.common.lib;
+package hellfirepvp.astralsorcery.common.constellation;
 
-import hellfirepvp.astralsorcery.common.enchantment.EnchantmentNightVision;
-import hellfirepvp.astralsorcery.common.enchantment.EnchantmentScorchingHeat;
+import java.awt.*;
 
 /**
  * This class is part of the Astral Sorcery Mod
  * The complete source code for this mod can be found on github.
- * Class: EnchantmentsAS
+ * Class: DrawnConstellation
  * Created by HellFirePvP
- * Date: 18.03.2017 / 19:56
+ * Date: 01.05.2017 / 14:01
  */
-public class EnchantmentsAS {
+public class DrawnConstellation {
 
-    public static EnchantmentNightVision enchantmentNightVision;
-    public static EnchantmentScorchingHeat enchantmentScorchingHeat;
+    public static final int CONSTELLATION_DRAW_SIZE = 30;
+
+    public final Point point;
+    public final IConstellation constellation;
+
+    public DrawnConstellation(Point point, IConstellation constellation) {
+        this.point = point;
+        this.constellation = constellation;
+    }
 
 }

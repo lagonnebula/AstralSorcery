@@ -13,6 +13,7 @@ import hellfirepvp.astralsorcery.common.block.BlockCustomOre;
 import hellfirepvp.astralsorcery.common.block.BlockCustomSandOre;
 import hellfirepvp.astralsorcery.common.block.BlockMarble;
 import hellfirepvp.astralsorcery.common.crafting.ItemHandle;
+import hellfirepvp.astralsorcery.common.crafting.RecipeChangeWandColor;
 import hellfirepvp.astralsorcery.common.crafting.ShapedLightProximityRecipe;
 import hellfirepvp.astralsorcery.common.crafting.altar.AltarRecipeRegistry;
 import hellfirepvp.astralsorcery.common.crafting.altar.recipes.*;
@@ -34,6 +35,7 @@ import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
+import net.minecraft.util.NonNullList;
 import net.minecraftforge.oredict.RecipeSorter;
 
 import static hellfirepvp.astralsorcery.common.crafting.altar.AltarRecipeRegistry.*;
@@ -72,11 +74,12 @@ public class RegistryRecipes {
     public static ConstellationRecipe rIlluminationWand;
     public static AttunementRecipe rArchitectWand;
     public static AttunementRecipe rExchangeWand;
-    public static ConstellationRecipe rShiftStar;
+    public static AttunementRecipe rShiftStar;
     public static ConstellationRecipe rRitualLink;
     public static DiscoveryRecipe rIlluminationPowder;
     public static CelestialGatewayRecipe rCelestialGateway;
     public static DrawingTableRecipe rDrawingTable;
+    public static ConstellationRecipe rInfusedGlass;
 
     public static LensRecipe rLens;
     public static PrismLensRecipe rPrism;
@@ -143,8 +146,11 @@ public class RegistryRecipes {
     public static void initVanillaRecipes() {
         RecipeSorter.register("LightProximityCrafting", ShapedLightProximityRecipe.class, RecipeSorter.Category.SHAPED, "after:minecraft:shaped");
         RecipeSorter.register("ShapedRecipeAdapter", AccessibleRecipeAdapater.class, RecipeSorter.Category.SHAPED, "after:minecraft:shaped");
+        RecipeSorter.register("RecipeChangeIlluminationWandColor", RecipeChangeWandColor.class, RecipeSorter.Category.SHAPELESS, "after:minecraft:shapeless");
 
         CraftingManager manager = CraftingManager.getInstance();
+
+        manager.addRecipe(new RecipeChangeWandColor());
 
         rLPRAltar = new ShapedRecipe(BlocksAS.blockAltar)
                 .addPart(BlockBlackMarble.BlackMarbleBlockType.RAW.asStack(),
@@ -176,7 +182,7 @@ public class RegistryRecipes {
                         ShapedRecipeSlot.LEFT,
                         ShapedRecipeSlot.RIGHT,
                         ShapedRecipeSlot.LOWER_CENTER);
-        rCCParchment = new ShapedRecipe(ItemUtils.copyStackWithSize(ItemCraftingComponent.MetaType.PARCHMENT.asStack(), 2))
+        rCCParchment = new ShapedRecipe(ItemUtils.copyStackWithSize(ItemCraftingComponent.MetaType.PARCHMENT.asStack(), 4))
                 .addPart(ItemCraftingComponent.MetaType.AQUAMARINE.asStack(),
                         ShapedRecipeSlot.CENTER)
                 .addPart(Items.PAPER,
@@ -220,7 +226,7 @@ public class RegistryRecipes {
                 .addPart(OreDictAlias.BLOCK_MARBLE,
                         ShapedRecipeSlot.UPPER_LEFT, ShapedRecipeSlot.UPPER_CENTER,
                         ShapedRecipeSlot.LEFT, ShapedRecipeSlot.CENTER);
-        rMarbleStairs = new ShapedRecipe(new ItemStack(BlocksAS.blockMarbleStairs, 8))
+        rMarbleStairs = new ShapedRecipe(new ItemStack(BlocksAS.blockMarbleStairs, 4))
                 .addPart(OreDictAlias.BLOCK_MARBLE,
                         ShapedRecipeSlot.UPPER_LEFT,
                         ShapedRecipeSlot.LEFT,
@@ -281,6 +287,23 @@ public class RegistryRecipes {
 
         rCelestialGateway = registerAltarRecipe(new CelestialGatewayRecipe());
         rDrawingTable = registerAltarRecipe(new DrawingTableRecipe());
+
+        NonNullList<ItemStack> applicable = NonNullList.create();
+        for (ItemColoredLens.ColorType type : ItemColoredLens.ColorType.values()) {
+            applicable.add(type.asStack());
+        }
+        rInfusedGlass = registerConstellationRecipe(new ShapedRecipe(ItemsAS.infusedGlass)
+                .addPart(ItemCraftingComponent.MetaType.GLASS_LENS.asStack(),
+                        ShapedRecipeSlot.LEFT,
+                        ShapedRecipeSlot.RIGHT)
+                .addPart(new ItemHandle(applicable),
+                        ShapedRecipeSlot.CENTER));
+        rInfusedGlass.setAttItem(ItemCraftingComponent.MetaType.RESO_GEM.asStack(), AttunementRecipe.AttunementAltarSlot.values());
+        rInfusedGlass.setCstItem(ItemCraftingComponent.MetaType.STARDUST.asStack(),
+                ConstellationRecipe.ConstellationAtlarSlot.UP_LEFT_LEFT,
+                ConstellationRecipe.ConstellationAtlarSlot.UP_RIGHT_RIGHT,
+                ConstellationRecipe.ConstellationAtlarSlot.DOWN_LEFT_LEFT,
+                ConstellationRecipe.ConstellationAtlarSlot.DOWN_RIGHT_RIGHT);
 
         rGlassLensSpectral = registerConstellationRecipe(new ShapedRecipe(ItemColoredLens.ColorType.SPECTRAL.asStack())
                 .addPart(ItemCraftingComponent.MetaType.GLASS_LENS.asStack(),
@@ -352,21 +375,21 @@ public class RegistryRecipes {
         rExchangeWand.setAttItem(BlockMarble.MarbleBlockType.RUNED.asStack(), AttunementRecipe.AttunementAltarSlot.LOWER_LEFT);
         rExchangeWand.setPassiveStarlightRequirement(1600);
 
-        rShiftStar = registerConstellationRecipe(new ShapedRecipe(ItemsAS.shiftingStar)
-                .addPart(OreDictAlias.ITEM_GLOWSTONE_DUST,
-                        ShapedRecipeSlot.UPPER_LEFT,
-                        ShapedRecipeSlot.LOWER_RIGHT)
-                .addPart(BlocksAS.fluidLiquidStarlight,
+        rShiftStar = registerAttenuationRecipe(new ShapedRecipe(ItemsAS.shiftingStar)
+                .addPart(ItemsAS.illuminationPowder,
+                        ShapedRecipeSlot.LEFT,
+                        ShapedRecipeSlot.RIGHT)
+                .addPart(BlockMarble.MarbleBlockType.RUNED.asStack(),
                         ShapedRecipeSlot.UPPER_RIGHT,
+                        ShapedRecipeSlot.LOWER_RIGHT,
+                        ShapedRecipeSlot.UPPER_LEFT,
                         ShapedRecipeSlot.LOWER_LEFT)
-                .addPart(ItemCraftingComponent.MetaType.RESO_GEM.asStack(),
+                .addPart(BlocksAS.fluidLiquidStarlight,
                         ShapedRecipeSlot.CENTER)
                 .addPart(ItemCraftingComponent.MetaType.STARDUST.asStack(),
                         ShapedRecipeSlot.UPPER_CENTER,
-                        ShapedRecipeSlot.LEFT,
-                        ShapedRecipeSlot.RIGHT,
                         ShapedRecipeSlot.LOWER_CENTER));
-        rShiftStar.setCstItem(BlockMarble.MarbleBlockType.RUNED.asStack(), ConstellationRecipe.ConstellationAtlarSlot.values());
+        rShiftStar.setAttItem(ItemCraftingComponent.MetaType.AQUAMARINE.asStack(), AttunementRecipe.AttunementAltarSlot.values());
 
         rIlluminationWand = registerConstellationRecipe(new ShapedRecipe(ItemsAS.illuminationWand)
                 .addPart(ItemCraftingComponent.MetaType.RESO_GEM.asStack(),
